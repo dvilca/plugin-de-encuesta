@@ -191,6 +191,7 @@ function Kfp_Aspirante_form($atts)
 
 // El hook "admin_menu" permite agregar un nuevo item al menú de administración
 add_action("admin_menu", "Kfp_Aspirante_menu");
+
 /**
  * Agrega el menú del plugin al escritorio de WordPress
  *
@@ -214,7 +215,7 @@ function Kfp_Aspirante_admin()
     global $wpdb;
 
     $tabla_encuesta = $wpdb->prefix . 'cuestionario_encuesta';
-    $aspirantes = $wpdb->get_results("SELECT enc_id, enc_nombre,enc_descripcion, enc_num_pregunta, enc_fecha_creacion, IF(enc_estado=1,'activo','boqueado') as enc_estado FROM $tabla_encuesta");
+    $aspirantes = $wpdb->get_results("SELECT enc_id, enc_nombre,enc_descripcion, enc_num_pregunta, enc_fecha_creacion, IF(enc_estado=1,'activo','inactivo') as enc_estado FROM $tabla_encuesta");
     $aspirantestotal = $wpdb->get_var("SELECT count(*) FROM $tabla_encuesta");
     $aspirantesactivo = $wpdb->get_var("SELECT count(*) FROM $tabla_encuesta where enc_estado=1");
     $cantidadtotal = $aspirantestotal;
@@ -233,6 +234,9 @@ function Kfp_Aspirante_admin()
         $enc_descripcion = $_POST['descripcion']; 
         $enc_cantpre = $_POST['cant_pre']; 
         $enc_estado = $_POST['estado']; 
+        if($enc_estado==null){
+            $enc_estado=0;
+        }
 
         $wpdb->insert(
             $tabla_cuestionario_encuesta1,
@@ -275,15 +279,17 @@ function Kfp_Aspirante_admin()
             }  
             $cantidadinc++;
         }           
+            
             echo "<p class='exito'><b>Tus datos han sido registrados</b>. Gracias  por tu interés. En breve te compartiremos los resultados.<p>";
     }
-
 
     	// Carga esta hoja de estilo para poner más bonito el formulario
         wp_enqueue_style('css_aspirante', plugins_url('estilos.css', __FILE__));
         wp_enqueue_script('js_aspirante', plugins_url('popup.js', __FILE__));
+        wp_enqueue_script('js_script', plugins_url('script.js', __FILE__));
+
         
-        echo '<div class="wrap">
+  echo '<div class="wrap">
         <h1 class="wp-heading-inline">Encuestas</h1>
         <a href="#" id="btn-abrir-popup" class="page-title-action" >Agregar nueva</a>   
         <div class="overlay" id="overlay">
@@ -341,11 +347,11 @@ function Kfp_Aspirante_admin()
                         echo '<p class="submit">
                             <input type="submit" name="createuser" id="createusersub" class="button button-primary" value="Crear nueva encuesta" />
                             </p>
-                    </form> ';
-echo '           </div>
+                    </form> 
+                </div>
             </div>
-        </div>
-        <hr class="wp-header-end" />  
+        </div>';
+  echo '<hr class="wp-header-end" />  
         <h2 class="screen-reader-text">Lista de páginas filtradas</h2>
         <ul class="subsubsub">
             <li class="all"><a href="" class="current" aria-current="page" >Todas <span class="count">('.$cantidadtotal.')</span></a>|</li>
@@ -381,14 +387,20 @@ echo '           </div>
                         </th>
                     </tr>
                 </thead>';
-        
+                wp_enqueue_script('js_aspirante1', plugins_url('popup1.js', __FILE__));
                 echo '<tbody id="the-list">';                
                 foreach ( $aspirantes as $aspirante ) {
                     $enc_id = (int)$aspirante->enc_id;
                     $nombre = esc_textarea($aspirante->enc_nombre);
                     $descripcion = esc_textarea($aspirante->enc_descripcion);
                     $fecha = esc_textarea($aspirante->enc_fecha_creacion);
-                    $estado = $aspirante->enc_estado;   
+                    $estado = $aspirante->enc_estado; 
+                    $estadoEnvio = '1';
+                    $textoestado= 'activar';
+                    if($estado=='activo'){
+                        $estadoEnvio='0';
+                        $textoestado= 'inhabilitar';
+                    }  
                     echo "<tr id='post-12' class='iedit author-self level-0 post-12 type-page status-publish hentry entry' >
                         <td class='title column-title has-row-actions column-primary page-title' data-colname='Título'>           
                             <strong>
@@ -396,8 +408,10 @@ echo '           </div>
                             </strong>        
                             <div class='row-actions'>
                                 <span class='edit'><a href='' aria-label='Editar “cuestionario”'>Editar</a>|</span>
-                                <span class='trash'><a href='' class='submitdelete' aria-label='Mover “cuestionario” a la Papelera'>Papelera</a>|</span>
-                                <span class='view'><a href='' rel='bookmark' aria-label='Ver “cuestionario”'>Ver</a></span>
+                                <span class='trash'><input type='hidden' value='$estadoEnvio' id='valorenvio'/><a href='#more-$enc_id' class='submitdelete' >$textoestado</a>|</span>
+                                <span class='view'><a href='#' id='btn-abrir-popup-ver' rel='bookmark' aria-label='Ver “cuestionario”'>Ver</a></span>                                                             
+
+
                             </div>       
                         </td>       
                         <td class='author' data-colname='Autor'>  $descripcion  </td>    
@@ -411,7 +425,7 @@ echo '           </div>
                             <span aria-hidden='true'>$estado</span>
                         </td>        
                     </tr>";
-                }
+                }                
                 echo '</tbody>';
 
                 echo'<tfoot>
@@ -433,6 +447,67 @@ echo '           </div>
                 </tfoot>
             </table>
         </form>
+
+
+        <div class="overlay" id="overlay-ver">
+            <div class="popup" id="popup-ver">
+                <a href="#" id="btn-cerrar-popup-ver" class="btn-cerrar-popup-ver"><i class="fas fa-times"></i>X</a>                   
+                <div class="wrap">
+                    <h1 id="add-new-user">resultado</h1>
+
+                    <div class="rojo div-semaforo"></div>
+                    <div class="amarillo div-semaforo"></div>
+                    <div class="verde div-semaforo"></div>
+                    <div class="naranja div-semaforo"></div>
+                    <div class="azul div-semaforo"></div>
+
+                    <div id="ajax-response"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
   ';
+}
+
+
+
+//Insertar Javascript js y enviar ruta admin-ajax.php
+add_action('wp_enqueue_scripts', 'dcms_insertar_js');
+
+function dcms_insertar_js(){
+
+	if (!is_home()) return;
+
+	wp_register_script('dcms_miscript', get_template_directory_uri(). '/script.js', array('jquery'), '1', true );
+	wp_enqueue_script('dcms_miscript');
+
+	wp_localize_script('dcms_miscript','dcms_vars',['ajaxurl'=>admin_url('admin-ajax.php')]);
+}
+
+//Devolver datos a archivo js
+add_action('wp_ajax_nopriv_dcms_ajax_readmore','dcms_enviar_contenido');
+add_action('wp_ajax_dcms_ajax_readmore','dcms_enviar_contenido');
+
+function dcms_enviar_contenido()
+{
+    global $wpdb;
+    $tabla_encuestaUdpate = $wpdb->prefix . 'cuestionario_encuesta';
+	$id_post = absint($_POST['id_post']);
+    $estad = absint($_POST['estado']);
+	$content = apply_filters('the_content', get_post_field('post_content', $id_post));
+
+    $result = $wpdb->update(
+        $tabla_encuestaUdpate,
+        array(        
+            'enc_estado' => $estad
+        ),
+        array( 'enc_id' => $id_post )
+    );
+
+	//sleep(2);
+	
+	echo $id_post;
+
+	wp_die();
 }
