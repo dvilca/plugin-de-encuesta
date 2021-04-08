@@ -16,11 +16,11 @@ $(document).ready(function(){
             '<tr id="roww'+i+'" class="form-field">' +
             '<th scope="row"></th>' +
             '<td>'+
-                '<input type="text" name="alt'+i+'1" placeholder="Alternativa 1 " class="form-control name_list" />'+                          
-                '<input type="text" name="alt'+i+'2" placeholder="Alternativa 2 " class="form-control name_list" />'+                          
-                '<input type="text" name="alt'+i+'3" placeholder="Alternativa 3 " class="form-control name_list" />'+                          
-                '<input type="text" name="alt'+i+'4" placeholder="Alternativa 4 " class="form-control name_list" />'+                          
-                '<input type="text" name="alt'+i+'5" placeholder="Alternativa 5 " class="form-control name_list" />'+                          
+                '<input type="text" name="alt'+i+'1" placeholder="Alternativa 1 " class="form-control name_list" /><input type="color" name="color'+i+'1" style="width: 2em;"> '+                          
+                '<input type="text" name="alt'+i+'2" placeholder="Alternativa 2 " class="form-control name_list" /><input type="color" name="color'+i+'2" style="width: 2em;">'+                          
+                '<input type="text" name="alt'+i+'3" placeholder="Alternativa 3 " class="form-control name_list" /><input type="color" name="color'+i+'3" style="width: 2em;">'+                          
+                '<input type="text" name="alt'+i+'4" placeholder="Alternativa 4 " class="form-control name_list" /><input type="color" name="color'+i+'4" style="width: 2em;">'+                          
+                '<input type="text" name="alt'+i+'5" placeholder="Alternativa 5 " class="form-control name_list" /><input type="color" name="color'+i+'5" style="width: 2em;">'+                          
             '</td>'+
             '</tr>');
             i++;

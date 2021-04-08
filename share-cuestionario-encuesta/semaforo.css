@@ -1,0 +1,25 @@
+.div-semaforo{
+	width: 20px;
+	height: 20px;
+	border: 1px solid black;
+	margin: 0.2em;
+	border-radius: 25%;
+}
+.rojo{
+    background: rgb(255, 29, 29);
+}
+.amarillo{
+    background:rgb(255, 235, 29);
+}
+.verde{
+    background:rgb(35, 253, 0);
+}
+.naranja{
+    background:rgb(230, 87, 5);
+}
+.azul{
+    background:rgb(40, 7, 233);
+}
+.size_color{
+    width: 5em;
+}
