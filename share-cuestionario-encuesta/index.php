@@ -4,7 +4,7 @@
 	Plugin URI: http://www.ide-solution.com
 	Description: Formulario de encuesta para recoger datos de los usuarios
 	Author: David vilca
-	Version: 1.1
+	Version: 2.0
 	Author URI: http://www.vilcatec.com
 */
 
@@ -92,8 +92,10 @@ function Kfp_Aspirante_form($atts)
     if (!empty($_POST) 		
 		AND wp_verify_nonce($_POST['aspirante_nonce'], 'graba_aspirante')
     ) {
+        $tabla_cues_encu= $wpdb->prefix . 'cuestionario_encuesta';
+        $resultencuesta = $wpdb->get_row("SELECT * FROM $tabla_cues_encu where enc_id=$idencuesta");
         $tabla_cuestionario_pregunta = $wpdb->prefix . 'cuestionario_pregunta';
-        $preguntas = $wpdb->get_results("SELECT * FROM $tabla_cuestionario_pregunta");
+        $preguntas = $wpdb->get_results("SELECT * FROM $tabla_cuestionario_pregunta where enc_id=$idencuesta");
         foreach ( $preguntas as $pregunta ) {  
             $id = esc_textarea($pregunta->pre_id);
             $tabla_cuestionario_respuestas = $wpdb->prefix . 'cuestionario_respuestas'; 
@@ -119,9 +121,61 @@ function Kfp_Aspirante_form($atts)
             )
         );  
         
+        if($_POST['correo']<>''){
+            $email_to = "david_199180@hotmail.com";
+            $email_subject = "ASUNTO: ".$resultencuesta->enc_asunto."";
+            $email_message = "".$resultencuesta->enc_mensaje."\n\n";     
+            $email_message .= "Comentarios: " . $_POST['correo'] . "\n\n";
+
+
+            //INICIA
+            global $wpdb;
+                $tabla_cuestionario_pregunta = $wpdb->prefix . 'cuestionario_pregunta';
+                $preguntas = $wpdb->get_results("SELECT * FROM $tabla_cuestionario_pregunta where enc_id=$idencuesta");
+                $num_pregunta =1 ;
+                foreach ( $preguntas as $pregunta ) {
+                    $nombre = esc_textarea($pregunta->pre_nombre);
+                    $id = esc_textarea($pregunta->pre_id);  
+                    $email_message .= "Pregunta $num_pregunta: $nombre";
+
+                    $tabla_cuestionario_alternativa = $wpdb->prefix . 'cuestionario_alternativa';
+                    $tabla_cuestionario_respuesta = $wpdb->prefix . 'cuestionario_respuestas';
+                    $totalrespuestas = $wpdb->get_var("SELECT count(cr.res_valor) as cant from $tabla_cuestionario_alternativa as ca left join $tabla_cuestionario_respuesta as cr on ca.alt_id=cr.alt_id where pre_id=$id ");
+                    $alternativas = $wpdb->get_results("SELECT ca.alt_id,ca.alt_nombre,ca.alt_color, count(cr.res_valor) as cant from $tabla_cuestionario_alternativa as ca left join $tabla_cuestionario_respuesta as cr on ca.alt_id=cr.alt_id where pre_id=$id group by ca.alt_id,ca.alt_nombre,ca.alt_color");
+                    $incremento = 1;
+                    $idAlternativa;
+                    foreach ( $alternativas as $alternativa ) {
+                        $nombreAl = esc_textarea($alternativa->alt_nombre);
+                        $idAl = esc_textarea($alternativa->alt_id);
+                        $colo = esc_textarea($alternativa->alt_color);                       
+                        $cant = esc_textarea($alternativa->cant);  
+               
+                        $email_message .= ''.number_format(($cant/$totalrespuestas*100),2,".",",").'% '.$nombreAl.'                                  
+                                ';
+                        $incremento= $incremento+1;
+                        $idAlternativa = $idAl;
+                    }   
+                    $num_pregunta++;                     
+                } 
+            //FIN
         
-        echo "<p class='exito'><b>Tus respuestas han sido registradas</b>. Gracias 
-            por tu participación.<p>";
+        
+            // Ahora se envía el e-mail usando la función mail() de PHP
+            $mail = $_POST['correo'];
+            $header = 'From: ' . $mail . " \r\n";
+            $header .= "X-Mailer: PHP/" . phpversion() . " \r\n";
+            $header .= "Mime-Version: 1.0 \r\n";
+            $header .= "Content-Type: text/plain";
+        
+            if(mail($email_to, $email_subject, $email_message,$header)){
+                echo "<p class='exito'><b>Tus respuestas han sido registradas</b>. 
+                Gracias por tu participación.<br>Te enviaremos los resultados al correo: ".$mail." <p>";               
+            }else{
+                echo "<p class='exito'><b>Tus respuestas han sido registradas</b>.  Gracias por tu participación.<p>";
+            }
+        }else{        
+            echo "<p class='exito'><b>Tus respuestas han sido registradas</b>. Gracias por tu participación.<p>";
+        }
     }
 
 	// Carga esta hoja de estilo para poner más bonito el formulario
