@@ -4,7 +4,7 @@
 	Plugin URI: http://www.ide-solution.com
 	Description: Formulario de encuesta para recoger datos de los usuarios
 	Author: David vilca
-	Version: 2.0
+	Version: 2.1
 	Author URI: http://www.vilcatec.com
 */
 
@@ -37,6 +37,7 @@ function Kfp_Aspirante_init()
         enc_num_pregunta smallint(4) NOT NULL,
         enc_fecha_creacion datetime default CURRENT_TIMESTAMP NOT NULL,
         enc_correo varchar(50) NOT NULL,
+        enc_clave varchar(50) NOT NULL,
         enc_asunto varchar(200) NOT NULL,
         enc_mensaje varchar(500) NOT NULL, 
         enc_estado smallint(4) NOT NULL,     
@@ -121,14 +122,23 @@ function Kfp_Aspirante_form($atts)
             )
         );  
         
+
+        // envio al correo
+
         if($_POST['correo']<>''){
-            $email_to = "david_199180@hotmail.com";
-            $email_subject = "ASUNTO: ".$resultencuesta->enc_asunto."";
-            $email_message = "".$resultencuesta->enc_mensaje."\n\n";     
-            $email_message .= "Comentarios: " . $_POST['correo'] . "\n\n";
+            include("sendemail.php");
+
+            //$mail_username="david_199180@hotmail.com";//Correo electronico saliente ejemplo: tucorreo@gmail.com
+            $mail_username = $resultencuesta->enc_correo;
+            $mail_userpassword=$resultencuesta->enc_clave;//Tu contraseña de gmail
+            $mail_addAddress=$_POST['correo']; //correo electronico que recibira el mensaje
+			//Ruta de la plantilla HTML para enviar nuestro mensaje
+            $email_message = "".$resultencuesta->enc_mensaje."\n\n";      
+            $email_message .= "<br>";
 
 
             //INICIA
+         
             global $wpdb;
                 $tabla_cuestionario_pregunta = $wpdb->prefix . 'cuestionario_pregunta';
                 $preguntas = $wpdb->get_results("SELECT * FROM $tabla_cuestionario_pregunta where enc_id=$idencuesta");
@@ -136,7 +146,8 @@ function Kfp_Aspirante_form($atts)
                 foreach ( $preguntas as $pregunta ) {
                     $nombre = esc_textarea($pregunta->pre_nombre);
                     $id = esc_textarea($pregunta->pre_id);  
-                    $email_message .= "Pregunta $num_pregunta: $nombre";
+                    $email_message .= "<div class='form-input'>
+                    <label for='nivel_html' style='margin-bottom: 20px;'>Pregunta $num_pregunta: $nombre</label>";
 
                     $tabla_cuestionario_alternativa = $wpdb->prefix . 'cuestionario_alternativa';
                     $tabla_cuestionario_respuesta = $wpdb->prefix . 'cuestionario_respuestas';
@@ -150,8 +161,13 @@ function Kfp_Aspirante_form($atts)
                         $colo = esc_textarea($alternativa->alt_color);                       
                         $cant = esc_textarea($alternativa->cant);  
                
-                        $email_message .= ''.number_format(($cant/$totalrespuestas*100),2,".",",").'% '.$nombreAl.'                                  
-                                ';
+                        $email_message .= '<div style="width: 100%; background-color: green;">                       
+                        <div style="width: 100%; background-color: white; float: left; display: inline;">                                    
+                                <div style="float: left; margin-left: 10px;"><div>'.number_format(($cant/$totalrespuestas*100),2,".",",").'%</div></div>                                                                                           
+                                <div style="float: left; margin-left: 10px;"><div  style="width: 20px; height: 20px; border: 1px solid black; margin: 0.2em; border-radius: 25%;background: '.$colo.'"></div></div>
+                                <div style="float: left; margin-left: 10px;"><div>'.$nombreAl.'</div></div>                                    
+                            </div>
+                        </div>';
                         $incremento= $incremento+1;
                         $idAlternativa = $idAl;
                     }   
@@ -160,19 +176,14 @@ function Kfp_Aspirante_form($atts)
             //FIN
         
         
-            // Ahora se envía el e-mail usando la función mail() de PHP
-            $mail = $_POST['correo'];
-            $header = 'From: ' . $mail . " \r\n";
-            $header .= "X-Mailer: PHP/" . phpversion() . " \r\n";
-            $header .= "Mime-Version: 1.0 \r\n";
-            $header .= "Content-Type: text/plain";
-        
-            if(mail($email_to, $email_subject, $email_message,$header)){
-                echo "<p class='exito'><b>Tus respuestas han sido registradas</b>. 
-                Gracias por tu participación.<br>Te enviaremos los resultados al correo: ".$mail." <p>";               
-            }else{
-                echo "<p class='exito'><b>Tus respuestas han sido registradas</b>.  Gracias por tu participación.<p>";
-            }
+           /*Inicio captura de datos enviados por $_POST para enviar el correo */
+				$mail_setFromEmail=$resultencuesta->enc_correo;
+				//$mail_setFromName="david";
+				$txt_message=$resultencuesta->enc_mensaje;
+				$mail_subject=$resultencuesta->enc_asunto;
+				
+				sendemail($mail_username,$mail_userpassword,$mail_setFromEmail,$mail_setFromName,$mail_addAddress,$txt_message,$mail_subject,$email_message);//Enviar el mensaje
+                           
         }else{        
             echo "<p class='exito'><b>Tus respuestas han sido registradas</b>. Gracias por tu participación.<p>";
         }
@@ -188,21 +199,20 @@ function Kfp_Aspirante_form($atts)
     // Esta función de PHP activa el almacenamiento en búfer de salida (output buffer)
     // Cuando termine el formulario lo imprime con la función ob_get_clean
     ob_start();
-
-?>
-
+    // valida si ya se ha generado un registro de la encuesta
+    if(empty($_POST) ){
+?>   
     <form action="<?php get_the_permalink(); ?>" method="post" id="form_aspirante" class="cuestionario">
 	<?php wp_nonce_field('graba_aspirante', 'aspirante_nonce'); ?>
     
 <?php
     global $wpdb;
     $tabla_cuestionario_encuesta = $wpdb->prefix . 'cuestionario_encuesta';
-    $tituloEncuesta = $wpdb->get_var("SELECT enc_nombre FROM $tabla_cuestionario_encuesta where enc_id=$idencuesta and enc_estado=1");
-    $tituloEncuestamostrar = $wpdb->get_var("SELECT enc_nombre_mostrar FROM $tabla_cuestionario_encuesta where enc_id=$idencuesta and enc_estado=1");
-    if($tituloEncuestamostrar==1){
-    echo "<h2>$tituloEncuesta</h2>";
+    $resultadoencuesta = $wpdb->get_row("SELECT * FROM $tabla_cuestionario_encuesta where enc_id=$idencuesta and enc_estado=1");        
+    if($resultadoencuesta->enc_nombre_mostrar==1){
+    echo "<h2>$resultadoencuesta->enc_nombre</h2>";
     }
-    if($tituloEncuesta<>''){
+    if($resultadoencuesta->enc_estado<>0){
         $tabla_cuestionario_pregunta = $wpdb->prefix . 'cuestionario_pregunta';
         $preguntas = $wpdb->get_results("SELECT * FROM $tabla_cuestionario_pregunta where enc_id=$idencuesta ");
         foreach ( $preguntas as $pregunta ) {
@@ -245,10 +255,11 @@ function Kfp_Aspirante_form($atts)
     }else{
         echo "<center><p>Encuesta inhabilitada</p></center>";
     }
-
+    
 ?>        
     </form>
 <?php     
+    }
     // Devuelve el contenido del buffer de salida
     return ob_get_clean();
 }
@@ -286,7 +297,7 @@ function Kfp_Aspirante_admin()
     $cantidadpublic = $aspirantesactivo;
     $cantidadinactivas = $aspirantestotal - $aspirantesactivo;
 
-    // insercion de tablas
+   
     if (!empty($_POST) 		
 		AND wp_verify_nonce($_POST['encuesta_nonce'], 'graba_encuesta')
         AND $_POST['titulo']<>''
@@ -306,6 +317,7 @@ function Kfp_Aspirante_admin()
             $enc_estado=0;
         }
         $enc_correo = $_POST['correo']; 
+        $enc_clave = $_POST['clave'];
         $enc_asunto = $_POST['asunto']; 
         $enc_mensaje = $_POST['mensaje']; 
         $wpdb->insert(
@@ -317,6 +329,7 @@ function Kfp_Aspirante_admin()
                 'enc_estado'=>$enc_estado,
                 'enc_nombre_mostrar' =>$enc_titulo_mostrar,
                 'enc_correo' => $enc_correo,
+                'enc_clave' => $enc_clave,
                 'enc_asunto' => $enc_asunto,
                 'enc_mensaje' => $enc_mensaje
             )
@@ -358,6 +371,44 @@ function Kfp_Aspirante_admin()
             
             echo "<p class='exito'><b>La encuesta fue registrada con éxito</b><p>";
     }
+    else if (!empty($_POST) 		
+    AND wp_verify_nonce($_POST['encuesta_nonce'], 'graba_encuesta_editar')
+    AND $_POST['titulo']<>''
+) {         
+        $tabla_cuestionario_encuesta1 = $wpdb->prefix . 'cuestionario_encuesta';
+        $enc_id = $_POST['id_encuesta'];
+        $enc_titulo = $_POST['titulo']; 
+        $enc_titulo_mostrar = $_POST['mostrar_titulo']; 
+        if($enc_titulo_mostrar==null){
+            $enc_titulo_mostrar=0;
+        }
+        $enc_descripcion = $_POST['descripcion']; 
+        $enc_cantpre = $_POST['cant_pre']; 
+        $enc_estado = $_POST['estado']; 
+        if($enc_estado==null){
+            $enc_estado=0;
+        }
+        $enc_correo = $_POST['correo']; 
+        $enc_clave = $_POST['clave']; 
+        $enc_asunto = $_POST['asunto']; 
+        $enc_mensaje = $_POST['mensaje']; 
+        $wpdb->update(
+            $tabla_cuestionario_encuesta1,
+            array(
+                'enc_nombre' => $enc_titulo,
+                'enc_descripcion' => $enc_descripcion,  
+                'enc_num_pregunta' => $enc_cantpre,                
+                'enc_estado'=>$enc_estado,
+                'enc_nombre_mostrar' =>$enc_titulo_mostrar,                                
+                'enc_correo' => $enc_correo,
+                'enc_clave' => $enc_clave,
+                'enc_asunto' => $enc_asunto,
+                'enc_mensaje' => $enc_mensaje
+            ),
+            array( 'enc_id' => $enc_id ), 
+        );  
+
+}
 
     	// Carga esta hoja de estilo para poner más bonito el formulario
         wp_enqueue_style('css_aspirante', plugins_url('estilos.css', __FILE__));
@@ -429,10 +480,18 @@ function Kfp_Aspirante_admin()
                             <tbody>
                                 <tr class="form-field form-required">
                                     <th scope="row">
-                                        <label for="correo">Correo <span class="description">(requerido)</span></label>
+                                        <label for="correo">Correo <span class="description">(requerido) <br>Correo permitido hotmail</span></label>
                                     </th>
                                     <td>
                                         <input name="correo" type="email" id="correo" value="" required="required" />
+                                    </td>
+                                </tr> 
+                                <tr class="form-field form-required">
+                                    <th scope="row">
+                                        <label for="clave">Clave <span class="description">(requerido)</span></label>
+                                    </th>
+                                    <td>
+                                        <input name="clave" type="password" id="clave" value="" required="required" />
                                     </td>
                                 </tr>                                
                                 <tr class="form-field form-required">
@@ -449,8 +508,7 @@ function Kfp_Aspirante_admin()
                                 </tr>                                      
                             </tbody>
                         </table>';
-                        wp_enqueue_script('js_jquery', plugins_url('jquery.js', __FILE__));
-                        wp_enqueue_script('js_popper', plugins_url('popper.js', __FILE__));
+                        wp_enqueue_script('js_jquery', plugins_url('jquery.js', __FILE__));                        
                         wp_enqueue_script('js_bootstrap', plugins_url('bootstrap.js', __FILE__));
                         wp_enqueue_script('js_dinamic', plugins_url('dinamic.js', __FILE__));
                         echo '<p class="submit">
@@ -467,16 +525,7 @@ function Kfp_Aspirante_admin()
             <li class="publish"><a href="">Publicadas <span class="count">('.$cantidadpublic.')</span></a>|</li>
             <li class="draft"><a href="">Inactivas <span class="count">('.$cantidadinactivas.')</span></a></li>
         </ul>
-        <form id="posts-filter" method="get">
-            <p class="search-box">
-                <label class="screen-reader-text" for="post-search-input">Buscar páginas:</label>
-                <input type="search" id="post-search-input" name="s" value="" />
-                <input type="submit" id="search-submit" class="button" value="Buscar páginas" />
-            </p>
-            <input type="hidden" name="post_status" class="post_status_page" value="all"/>
-            <input type="hidden" name="post_type" class="post_type_page" value="page" />
-            <input type="hidden" id="_wpnonce" name="_wpnonce" value="0be5147f5f" />
-            <input type="hidden" name="_wp_http_referer" value="/wordpress/wp-admin/edit.php?post_type=page"/>   
+ 
             <h2 class="screen-reader-text">Lista de páginas</h2>
             <table class="wp-list-table widefat fixed striped table-view-list pages">
                 <thead>
@@ -497,7 +546,7 @@ function Kfp_Aspirante_admin()
                     </tr>
                 </thead>';
                 wp_enqueue_script('js_aspirante1', plugins_url('popup1.js', __FILE__));
-                wp_enqueue_script('js_aspirante11', plugins_url('popup.js', __FILE__));
+                wp_enqueue_script('js_aspirante11', plugins_url('popup.js', __FILE__));                         
                 echo '<tbody id="the-list">';                
                 foreach ( $aspirantes as $aspirante ) {
                     $enc_id = (int)$aspirante->enc_id;
@@ -595,8 +644,10 @@ function Kfp_Aspirante_admin()
                     $mostrarestado = 'checked="checked"';
                 }
             ?>        
-            <form action="<?php get_the_permalink(); ?>" method="post">           
+            <form action="<?php get_the_permalink(); ?>" method="post">
+            <?php  wp_nonce_field('graba_encuesta_editar', 'encuesta_nonce'); ?>         
                 <?php
+                echo '<input name="id_encuesta" type="hidden" value="'.$enc_id.'"   />';
                 echo '<h1 id="add-new-user">Editar encuesta</h1>
                 <h2 id="add-new-user">Editar la encuesta</h2>
                 <input name="mov" type="hidden" value="editar" />';
@@ -624,8 +675,12 @@ function Kfp_Aspirante_admin()
                                 </div>
                 <h2 id="add-new-user">Configuración para envío de correos</h2>        
                                 <div class="contenedor2">   
-                                <div class="formu2"><label for="correo">Correo <span class="description">(requerido)</span></label></div>
+                                <div class="formu2"><label for="correo">Correo <span class="description">(requerido) <br>Correo permitido hotmail</span></label></div>
                                 <div class="formu2"><input name="correo" type="email" id="correo" value="'.$resultencuesta->enc_correo.'" required="required" /></div>
+                                </div>
+                                <div class="contenedor2">   
+                                <div class="formu2"><label for="clave">Clave <span class="description">(requerido)</span></label></div>
+                                <div class="formu2"><input name="clave" type="password" id="clave" value="'.$resultencuesta->enc_clave.'" required="required" /></div>
                                 </div>
                                 <div class="contenedor2">
                                 <div class="formu2"><label for="asunto">Asunto <span class="description">(requerido)</span></label></div>
@@ -669,8 +724,7 @@ function Kfp_Aspirante_admin()
                         </th>
                     </tr>
                 </tfoot>
-            </table>
-        </form>';
+            </table>';
 
         
                 echo '
@@ -703,7 +757,7 @@ function dcms_enviar_contenido()
     $tabla_encuestaUdpate = $wpdb->prefix . 'cuestionario_encuesta';
 	$id_post = absint($_POST['id_post']);
     $estad = absint($_POST['estado']);
-	$content = apply_filters('the_content', get_post_field('post_content', $id_post));
+	
 
     $result = $wpdb->update(
         $tabla_encuestaUdpate,
